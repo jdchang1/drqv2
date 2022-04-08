@@ -1,0 +1,13 @@
+#!/bin/bash
+#SBATCH -J DRQ               # Job name
+#SBATCH -o /home/jdc396/slurm/logs/%j.out                  # Name of stdout output log file (%j expands to jobID)
+#SBATCH -e /home/jdc396/slurm/logs/%j.err                  # Name of stderr output log file (%j expands to jobID)
+#SBATCH -N 1                                 # Total number of nodes requested
+#SBATCH -n 6                                 # Total number of cores requested
+#SBATCH --mem=64G                          # Total amount of (real) memory requested (per node)
+#SBATCH -t 480:00:00                          # Time limit (hh:mm:ss)
+#SBATCH --partition=sun        # Request partition for resource allocation
+#SBATCH --gres=gpu:1                        # Specify a list of generic consumable resources (per node)
+conda activate drqv2
+cd /home/jdc396/drqv2
+python train.py task=cup_catch

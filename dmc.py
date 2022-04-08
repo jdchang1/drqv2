@@ -18,6 +18,7 @@ class ExtendedTimeStep(NamedTuple):
     discount: Any
     observation: Any
     action: Any
+    raw: Any
 
     def first(self):
         return self.step_type == StepType.FIRST
@@ -67,6 +68,7 @@ class FrameStackWrapper(dm_env.Environment):
         self._env = env
         self._num_frames = num_frames
         self._frames = deque([], maxlen=num_frames)
+        self._raw_frames = deque([], maxlen=num_frames)
         self._pixels_key = pixels_key
 
         wrapped_obs_spec = env.observation_spec()
@@ -88,6 +90,11 @@ class FrameStackWrapper(dm_env.Environment):
         obs = np.concatenate(list(self._frames), axis=0)
         return time_step._replace(observation=obs)
 
+    def _get_raw(self):
+        assert len(self._raw_frames) == self._num_frames
+        obs = np.concatenate(list(self._raw_frames), axis=0)
+        return obs
+
     def _extract_pixels(self, time_step):
         pixels = time_step.observation[self._pixels_key]
         # remove batch dim
@@ -95,17 +102,25 @@ class FrameStackWrapper(dm_env.Environment):
             pixels = pixels[0]
         return pixels.transpose(2, 0, 1).copy()
 
+    def _extract_raw_pixels(self):
+        raw_pixels = self._env.physics.render(height=64, width=64, camera_id=0) # NOTE for quadruped its not
+        return raw_pixels.transpose(2, 0, 1).copy()
+
     def reset(self):
         time_step = self._env.reset()
         pixels = self._extract_pixels(time_step)
+        raw_pixels = self._extract_raw_pixels()
         for _ in range(self._num_frames):
             self._frames.append(pixels)
+            self._raw_frames.append(raw_pixels)
         return self._transform_observation(time_step)
 
     def step(self, action):
         time_step = self._env.step(action)
         pixels = self._extract_pixels(time_step)
+        raw_pixels = self._extract_raw_pixels()
         self._frames.append(pixels)
+        self._raw_frames.append(raw_pixels)
         return self._transform_observation(time_step)
 
     def observation_spec(self):
@@ -144,7 +159,6 @@ class ActionDTypeWrapper(dm_env.Environment):
     def __getattr__(self, name):
         return getattr(self._env, name)
 
-
 class ExtendedTimeStepWrapper(dm_env.Environment):
     def __init__(self, env):
         self._env = env
@@ -165,7 +179,8 @@ class ExtendedTimeStepWrapper(dm_env.Environment):
                                 step_type=time_step.step_type,
                                 action=action,
                                 reward=time_step.reward or 0.0,
-                                discount=time_step.discount or 1.0)
+                                discount=time_step.discount or 1.0,
+                                raw=self._env._get_raw())
 
     def observation_spec(self):
         return self._env.observation_spec()

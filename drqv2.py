@@ -110,6 +110,18 @@ class Critic(nn.Module):
             nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
 
+        #self.Q1 = nn.Sequential(
+        #    nn.Linear(feature_dim + action_shape[0], hidden_dim),
+        #    nn.ReLU(inplace=True), nn.Linear(hidden_dim, 512),
+        #    nn.ReLU(inplace=True), nn.Linear(512, 512),
+        #    nn.ReLU(inplace=True), nn.Linear(512, 1))
+
+        #self.Q2 = nn.Sequential(
+        #    nn.Linear(feature_dim + action_shape[0], hidden_dim),
+        #    nn.ReLU(inplace=True), nn.Linear(hidden_dim, 512),
+        #    nn.ReLU(inplace=True), nn.Linear(512, 512),
+        #    nn.ReLU(inplace=True), nn.Linear(512, 1))
+
         self.apply(utils.weight_init)
 
     def forward(self, obs, action):
@@ -173,6 +185,13 @@ class DrQV2Agent:
             if step < self.num_expl_steps:
                 action.uniform_(-1.0, 1.0)
         return action.cpu().numpy()[0]
+
+    def get_dist(self, obs, step):
+        obs = torch.as_tensor(obs, device=self.device)
+        obs = self.encoder(obs.unsqueeze(0))
+        stddev = utils.schedule(self.stddev_schedule, step)
+        dist = self.actor(obs, stddev)
+        return dist
 
     def update_critic(self, obs, action, reward, discount, next_obs, step):
         metrics = dict()

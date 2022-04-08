@@ -22,6 +22,8 @@ from logger import Logger
 from replay_buffer import ReplayBufferStorage, make_replay_loader
 from video import TrainVideoRecorder, VideoRecorder
 
+import datetime
+
 torch.backends.cudnn.benchmark = True
 
 
@@ -47,6 +49,9 @@ class Workspace:
         self.timer = utils.Timer()
         self._global_step = 0
         self._global_episode = 0
+
+        # Jonathan
+        self._best_score = -float('inf')
 
     def setup(self):
         # create logger
@@ -121,9 +126,17 @@ class Workspace:
             log('episode', self.global_episode)
             log('step', self.global_step)
 
+        # Jonathan: Add checkpoint saving
+        episode_reward = total_reward / episode
+        if episode_reward > self._best_score:
+            self.save_checkpoint(int(episode_reward))
+            self._best_score = episode_reward
+
     def train(self):
         # predicates
-        train_until_step = utils.Until(self.cfg.num_train_frames,
+        #train_until_step = utils.Until(self.cfg.num_train_frames,
+        #                               self.cfg.action_repeat)
+        train_until_step = utils.Until(230000,
                                        self.cfg.action_repeat)
         seed_until_step = utils.Until(self.cfg.num_seed_frames,
                                       self.cfg.action_repeat)
@@ -191,6 +204,14 @@ class Workspace:
 
     def save_snapshot(self):
         snapshot = self.work_dir / 'snapshot.pt'
+        keys_to_save = ['agent', 'timer', '_global_step', '_global_episode']
+        payload = {k: self.__dict__[k] for k in keys_to_save}
+        with snapshot.open('wb') as f:
+            torch.save(payload, f)
+
+    def save_checkpoint(self, score):
+        ts = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
+        snapshot = self.work_dir / f'{ts}_{score}_checkpoint.pt'
         keys_to_save = ['agent', 'timer', '_global_step', '_global_episode']
         payload = {k: self.__dict__[k] for k in keys_to_save}
         with snapshot.open('wb') as f:
