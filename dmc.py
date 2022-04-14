@@ -195,7 +195,7 @@ class ExtendedTimeStepWrapper(dm_env.Environment):
         return getattr(self._env, name)
 
 
-def make(name, frame_stack, action_repeat, seed):
+def make(name, frame_stack, action_repeat, seed, frame_size=64):
     domain, task = name.split('_', 1)
     # overwrite cup to ball_in_cup
     domain = dict(cup='ball_in_cup').get(domain, domain)
@@ -218,7 +218,7 @@ def make(name, frame_stack, action_repeat, seed):
     if (domain, task) in suite.ALL_TASKS:
         # zoom in camera for quadruped
         camera_id = dict(quadruped=2).get(domain, 0)
-        render_kwargs = dict(height=84, width=84, camera_id=camera_id)
+        render_kwargs = dict(height=frame_size, width=frame_size, camera_id=camera_id)
         env = pixels.Wrapper(env,
                              pixels_only=True,
                              render_kwargs=render_kwargs)
